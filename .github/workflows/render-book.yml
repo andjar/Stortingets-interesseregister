@@ -44,6 +44,7 @@ jobs:
             any::lubridate
             any::yaml
             any::knitr
+            any::rmarkdown
           cache-version: 1 # Increment cache version if R dependencies change significantly
 
       - name: Generate Quarto Content
