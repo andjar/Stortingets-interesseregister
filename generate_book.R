@@ -21,7 +21,7 @@ dir.create(output_dir_dates, showWarnings = FALSE, recursive = TRUE)
 
 # --- Data Loading and Preparation ---
 message("Loading data from: ", data_file)
-data <- fread(data_file)
+data <- fread(data_file, encoding = "UTF-8")
 
 # Ensure date is Date type
 data[, date := as.IDate(date)]
@@ -90,7 +90,7 @@ for (p in all_persons) {
         "```{r echo=FALSE, results='asis', comment=NA}\n",
         "current_text_val <- ", deparse(current_row$full_text), "\n",
         "prev_text_val <- ", deparse(current_row$prev_text), "\n",
-        "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, line.numbers=FALSE, header = FALSE)\n",
+        "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, style = list(html.output = 'diff.w.style'))\n",
         "```\n\n"
       )
     }
@@ -111,11 +111,11 @@ for (d in all_dates) {
   setorder(date_data, person) # Order by person within the date
   
   # Create filename
-  filename <- file.path(output_dir_dates, sanitize_filename(format(d, "%Y_%m_%d"), prefix = "date_"))
+  filename <- file.path(output_dir_dates, sanitize_filename(format(as.Date(d), "%Y_%m_%d"), prefix = "date_"))
   date_files <- c(date_files, filename)
   
   # Start writing QMD content
-  qmd_content <- paste0("# ", format(d, "%Y-%m-%d"), "\n\n")
+  qmd_content <- paste0("# ", format(as.Date(d), "%Y-%m-%d"), "\n\n")
   
   for (p in date_data$person) {
     current_row <- date_data[person == p] # Should be only one row here per person/date
@@ -144,7 +144,7 @@ for (d in all_dates) {
         "```{r echo=FALSE, results='asis', comment=NA}\n",
         "current_text_val <- ", deparse(current_row$full_text), "\n",
         "prev_text_val <- ", deparse(prev_row$full_text), "\n",
-        "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, line.numbers=TRUE, header = FALSE)\n",
+        "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, style = list(html.output = 'diff.w.style'))\n",
         "```\n\n"
       )
     }
@@ -154,6 +154,24 @@ for (d in all_dates) {
 }
 message("Generated ", length(date_files), " date chapter files.")
 
+# --- Copy diffobj CSS ---
+message("Copying diffobj CSS file...")
+diffobj_css_path <- diffobj::diffobj_css()
+
+if (!is.null(diffobj_css_path) && file.exists(diffobj_css_path)) {
+  # Define target path (e.g., in the root or a 'css' subdir)
+  target_css_path <- "diffobj.css"
+  # Uncomment next line if you prefer a css subdirectory
+  # target_css_path <- file.path("css", "diffobj.css"); dir.create("css", showWarnings = FALSE)
+  
+  if (file.copy(diffobj_css_path, target_css_path, overwrite = TRUE)) {
+    message("Copied diffobj CSS to: ", target_css_path)
+  } else {
+    warning("Failed to copy diffobj CSS to: ", target_css_path)
+  }
+} else {
+  warning("Could not find diffobj CSS file using diffobj::diffStyle(css.mode = 'file').")
+}
 
 # --- Generate _quarto.yml ---
 message("Generating ", quarto_yaml_file, "...")
@@ -179,7 +197,8 @@ quarto_config <- list(
     html = list(
       theme = "cosmo", # Choose a theme: https://quarto.org/docs/output-formats/html-themes.html
       toc = TRUE,
-      `toc-depth` = 2
+      `toc-depth` = 2L,
+      css = "diffobj.css"
     )
   ),
   # Optional: Add bibliography, etc.
@@ -188,30 +207,6 @@ quarto_config <- list(
   )
 )
 
-write_yaml(quarto_config, quarto_yaml_file)
+write_yaml(quarto_config, quarto_yaml_file, handlers = list(logical = yaml::verbatim_logical))
 message(quarto_yaml_file, " generated successfully.")
-
-# --- Generate a simple index.qmd ---
-if (!file.exists(index_qmd_file)) {
-  message("Generating basic ", index_qmd_file, "...")
-  index_content <- '
-# Introduction
-
-This book summarizes the registered financial interests of Norwegian politicians based on data extracted from [Source - describe your PDF source].
-
-The book is automatically generated and presents changes over time in two ways:
-
-1.  **By Politician:** Each chapter focuses on one politician, showing the chronological changes in their registered interests.
-2.  **By Date:** Each chapter focuses on a specific date, showing the status or changes for all relevant politicians on that date.
-
-The diffs highlight additions (green) and deletions (red) compared to the previous entry, ignoring whitespace changes.
-
-*This book is automatically generated. Please refer to the original source for official information.*
-'
-  writeLines(trimws(index_content), index_qmd_file)
-  message(index_qmd_file, " created.")
-} else {
-  message(index_qmd_file, " already exists, skipping generation.")
-}
-
 message("Script finished.")
