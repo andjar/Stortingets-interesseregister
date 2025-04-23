@@ -23,10 +23,11 @@ for (sel_file in list_of_files) {
     )
   }))
   df <- df[text != "Representanter"]
+  df <- df[text != "Vararepresentanter"]
   df <- df[text != "Regjeringsmedlemmer"]
   df <- df[!grepl("Ajourf.rt pr\\.", text)]
   
-  pattern <- "^[^,]+, [^(]+ \\([^,]+, [^)]+\\)$"
+  pattern <- "^\\S[^,]+, [^(]+ \\(([A-Za-z]{1,3})(?:, [^)]+)?\\)$"
   df[, person_row := grepl(pattern, text)]
   df[grepl("3", text, fixed = TRUE), person_row := FALSE]
   df[grepl("forlag", text, fixed = TRUE), person_row := FALSE]

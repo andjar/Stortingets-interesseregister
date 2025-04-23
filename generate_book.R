@@ -206,7 +206,12 @@ quarto_config <- list(
     ),
     `repo-url` = "https://github.com/andjar/Stortingets-interesseregister", # CHANGE THIS
     `repo-branch` = "main", # Or your default branch
-    `repo-actions` = list("edit", "issue")
+    `repo-actions` = list("edit", "issue"),
+    `reader-mode` = TRUE,
+    sidebar = list(
+      search = TRUE,
+      style = "docked"
+    )
   ),
   format = list(
     html = list(
