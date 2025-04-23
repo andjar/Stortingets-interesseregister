@@ -68,12 +68,11 @@ for (p in all_persons) {
   
   for (i in 1:nrow(person_data)) {
     current_row <- person_data[i, ]
-    qmd_content <- paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), "\n\n")
-    
+
     if (is.na(current_row$prev_text)) {
       # First entry for this person, just show the current text
       qmd_content <- paste0(
-        qmd_content,
+        paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), "\n\n"),
         "First registered entry:\n\n",
         "```text\n",
         current_row$full_text,
@@ -81,21 +80,31 @@ for (p in all_persons) {
       )
     } else {
       # Subsequent entry, show the diff
-      # We need to pass the text variables to the R chunk
-      # Using knitr's built-in diffobj support simplifies this
-      qmd_content <- paste0(
-        qmd_content,
-        "Changes since ", format(current_row$prev_date, "%Y-%m-%d"), ":\n\n",
-        # Pass variables explicitly to avoid environment issues in rendering
-        "```{r echo=FALSE, results='asis', comment=NA}\n",
-        "current_text_val <- ", deparse(current_row$full_text), "\n",
-        "prev_text_val <- ", deparse(current_row$prev_text), "\n",
-        "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, style = list(html.output = 'diff.w.style'))\n",
-        "```\n\n"
-      )
+      any_change_from_previous <- all(gsub("[[:space:]]", "", current_row$full_text) == gsub("[[:space:]]", "", current_row$prev_text))
+      if (any_change_from_previous) {
+        # qmd_content <- paste0(
+        #   paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), "\n\n"),
+        #   "No changes since ", format(current_row$prev_date, "%Y-%m-%d"), ".\n\n"
+        # )
+        qmd_content <- paste0(
+          qmd_content,
+          "No changes at ", format(current_row$date, "%Y-%m-%d"), ".\n\n"
+        )
+      } else {
+        qmd_content <- paste0(
+          paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), "\n\n"),
+          "Changes since ", format(current_row$prev_date, "%Y-%m-%d"), ":\n\n",
+          # Pass variables explicitly to avoid environment issues in rendering
+          "```{r echo=FALSE, results='asis', comment=NA}\n",
+          "current_text_val <- ", deparse(current_row$full_text), "\n",
+          "prev_text_val <- ", deparse(current_row$prev_text), "\n",
+          "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, style = list(html.output = 'diff.w.style'))\n",
+          "```\n\n"
+        )
+      }
     }
   }
-  # Write the QMD file
+
   writeLines(qmd_content, filename, useBytes = TRUE) # Use UTF-8 encoding
 }
 message("Generated ", length(politician_files), " politician chapter files.")
@@ -125,31 +134,37 @@ for (d in all_dates) {
     setorder(person_history, date)
     prev_row <- if(nrow(person_history) > 1) person_history[nrow(person_history)-1] else NULL
     
-    qmd_content <- paste0(qmd_content, "## ", p, "\n\n")
-    
     if (is.null(prev_row)) {
       # First entry for this person up to this date
       qmd_content <- paste0(
-        qmd_content,
+        paste0(qmd_content, "## ", p, "\n\n"),
         "First registered entry (as of this date):\n\n",
         "```text\n",
         current_row$full_text,
         "\n```\n\n"
       )
     } else {
-      # Show diff compared to the last known state for this person
-      qmd_content <- paste0(
-        qmd_content,
-        "Changes since ", format(prev_row$date, "%Y-%m-%d"), ":\n\n",
-        "```{r echo=FALSE, results='asis', comment=NA}\n",
-        "current_text_val <- ", deparse(current_row$full_text), "\n",
-        "prev_text_val <- ", deparse(prev_row$full_text), "\n",
-        "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, style = list(html.output = 'diff.w.style'))\n",
-        "```\n\n"
-      )
+      
+      any_change_from_previous <- all(gsub("[[:space:]]", "", current_row$full_text) == gsub("[[:space:]]", "", prev_row$full_text))
+      if (any_change_from_previous) {
+        # qmd_content <- paste0(
+        #   paste0(qmd_content, "## ", p, "\n\n"),
+        #   "No changes since ", format(prev_row$date, "%Y-%m-%d"), ".\n\n"
+        # )
+      } else {
+        qmd_content <- paste0(
+          paste0(qmd_content, "## ", p, "\n\n"),
+          "Changes since ", format(prev_row$date, "%Y-%m-%d"), ":\n\n",
+          "```{r echo=FALSE, results='asis', comment=NA}\n",
+          "current_text_val <- ", deparse(current_row$full_text), "\n",
+          "prev_text_val <- ", deparse(prev_row$full_text), "\n",
+          "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, style = list(html.output = 'diff.w.style'))\n",
+          "```\n\n"
+        )
+      }
     }
   }
-  # Write the QMD file
+
   writeLines(qmd_content, filename, useBytes = TRUE)
 }
 message("Generated ", length(date_files), " date chapter files.")

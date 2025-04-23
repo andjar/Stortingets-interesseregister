@@ -4,7 +4,7 @@ This book summarizes the registered financial interests of Norwegian politicians
 
 The book is automatically generated and presents changes over time in two ways:
   
-  1.  **By Politician:** Each chapter focuses on one politician, showing the chronological changes in their registered interests.
+1.  **By Politician:** Each chapter focuses on one politician, showing the chronological changes in their registered interests.
 2.  **By Date:** Each chapter focuses on a specific date, showing the status or changes for all relevant politicians on that date.
 
 The diffs highlight additions (green) and deletions (red) compared to the previous entry, ignoring whitespace changes.
