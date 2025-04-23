@@ -1,5 +1,4 @@
 name: Render and Deploy Quarto Book
-
 on:
   push:
     branches: [ main ] # Or your default branch
@@ -13,26 +12,26 @@ concurrency:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    # Add this environment configuration
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: write # Allow checking out code and pushing changes (if needed, e.g., for freezing)
       pages: write    # Allow deploying to GitHub Pages
       id-token: write # Allow OIDC token generation for secure deployment
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         # Optionally specify a Quarto version:
         # with:
         #   version: 1.4 # Or 'latest'
-
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release' # Or specify a version
-
       - name: Install R Dependencies (with caching)
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
@@ -46,22 +45,17 @@ jobs:
             any::knitr
             any::rmarkdown
           cache-version: 1 # Increment cache version if R dependencies change significantly
-
       - name: Generate Quarto Content
         run: Rscript generate_book.R
-
       - name: Render Quarto Book
         run: quarto render --profile github-actions # Use a profile if needed, otherwise just `quarto render`
-
       - name: Setup Pages
         uses: actions/configure-pages@v4
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload the _book directory (default output of quarto render for books)
           path: '_book'
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
