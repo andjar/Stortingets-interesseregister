@@ -199,7 +199,6 @@ quarto_config <- list(
     title = "Norwegian Politician Financial Interests",
     author = "Anders Hagen Jarmund",
     date = "today",
-    collapse = TRUE,
     chapters = list(
       list(part = "Introduction", chapters = list(index_qmd_file)),
       list(part = "Changes by Politician", chapters = as.list(politician_files)),
@@ -211,7 +210,8 @@ quarto_config <- list(
     `reader-mode` = TRUE,
     sidebar = list(
       search = TRUE,
-      style = "docked"
+      style = "docked",
+      `collapse-level` = 1
     )
   ),
   format = list(
