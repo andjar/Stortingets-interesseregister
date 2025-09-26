@@ -6,9 +6,11 @@
 "                                 Eierandel 0,000321%"
 Enkelttransaksjoner
 Dato         Kjøp/Salg     Selskapsnavn                 Ansvarsform      Eierandel (%) Antall Verdi (NOK)
+"18.09.2025   Kjøp          Aker BP                      ASA                   0,000321  1900      468525"
+"17.09.2025   Salg          Aker BP                      ASA                    0,00013  2000      489860"
 "13.06.2025   Kjøp          Aker BP                      ASA                   0,000321  2000      539800"
-"05.06.2025   Salg          Mowi                         ASA                      0,0001 1250    233919,7"
-05.06.2025   Salg          Aker                         ASA                       1E-05 2000     1232449
+"05.06.2025    Salg       Mowi                           ASA                0,0001   1250     233919,7"
+05.06.2025    Salg       Aker                           ASA                 1E-05   2000     1232449
 "06.03.2025    Salg       Norsk Hydro                    ASA                0,0001   3500      248352"
 "21.11.2024    Kjøp       MOWI                           ASA                0,0001   1994     395688,8"
 "21.11.2024    Salg       MOWI                           ASA                0,0001    744     147796,6"
