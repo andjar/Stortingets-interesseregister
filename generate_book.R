@@ -1,12 +1,11 @@
 # Load necessary libraries
-# Install them if you haven't: install.packages(c("data.table", "diffobj", "here", "stringr", "lubridate", "yaml", "knitr"))
+# Install them if you haven't: install.packages(c("data.table", "diffobj", "here", "stringr", "lubridate", "yaml"))
 library(data.table)
 library(diffobj)
 library(here)
 library(stringr)
 library(lubridate)
 library(yaml)
-library(knitr)
 
 # --- Configuration ---
 output_dir_politicians <- "politicians"
@@ -50,6 +49,22 @@ sanitize_filename <- function(name, prefix = "") {
   paste0(prefix, name, ".qmd")
 }
 
+# --- Helper function to compute diff HTML (pre-computed, not at render time) ---
+compute_diff_html <- function(prev_text, current_text) {
+  # Capture the HTML output from diffobj
+  diff_output <- capture.output({
+    diffobj::diffChr(
+      prev_text, 
+      current_text, 
+      format = 'html', 
+      mode = 'sidebyside', 
+      ignore.white.space = TRUE, 
+      style = list(html.output = 'diff.w.style')
+    )
+  })
+  paste(diff_output, collapse = "\n")
+}
+
 # --- Generate Chapters by Politician ---
 message("Generating chapters by politician...")
 politician_files <- character()
@@ -91,15 +106,14 @@ for (p in all_persons) {
           "No changes at ", format(current_row$date, "%Y-%m-%d"), ".\n\n"
         )
       } else {
+        # Pre-compute the diff HTML instead of using R chunk at render time
+        diff_html <- compute_diff_html(current_row$prev_text, current_row$full_text)
         qmd_content <- paste0(
           paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), "\n\n"),
           "Changes since ", format(current_row$prev_date, "%Y-%m-%d"), ":\n\n",
-          # Pass variables explicitly to avoid environment issues in rendering
-          "```{r echo=FALSE, results='asis', comment=NA}\n",
-          "current_text_val <- ", deparse(current_row$full_text), "\n",
-          "prev_text_val <- ", deparse(current_row$prev_text), "\n",
-          "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, style = list(html.output = 'diff.w.style'))\n",
-          "```\n\n"
+          "```{=html}\n",
+          diff_html,
+          "\n```\n\n"
         )
       }
     }
@@ -152,14 +166,14 @@ for (d in all_dates) {
         #   "No changes since ", format(prev_row$date, "%Y-%m-%d"), ".\n\n"
         # )
       } else {
+        # Pre-compute the diff HTML instead of using R chunk at render time
+        diff_html <- compute_diff_html(prev_row$full_text, current_row$full_text)
         qmd_content <- paste0(
           paste0(qmd_content, "## ", p, "\n\n"),
           "Changes since ", format(prev_row$date, "%Y-%m-%d"), ":\n\n",
-          "```{r echo=FALSE, results='asis', comment=NA}\n",
-          "current_text_val <- ", deparse(current_row$full_text), "\n",
-          "prev_text_val <- ", deparse(prev_row$full_text), "\n",
-          "diffobj::diffChr(prev_text_val, current_text_val, format = 'html', mode = 'sidebyside', ignore.white.space = TRUE, style = list(html.output = 'diff.w.style'))\n",
-          "```\n\n"
+          "```{=html}\n",
+          diff_html,
+          "\n```\n\n"
         )
       }
     }
@@ -221,11 +235,8 @@ quarto_config <- list(
       `toc-depth` = 2L,
       css = "diffobj.css"
     )
-  ),
-  # Optional: Add bibliography, etc.
-  execute = list(
-    freeze = "auto" # Re-render only if code/data changes
   )
+  # Note: No execute/freeze needed - diffs are pre-computed as static HTML
 )
 
 write_yaml(quarto_config, quarto_yaml_file, handlers = list(logical = yaml::verbatim_logical))

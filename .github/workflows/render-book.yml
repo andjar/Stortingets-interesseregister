@@ -42,15 +42,13 @@ jobs:
             any::stringr
             any::lubridate
             any::yaml
-            any::knitr
-            any::rmarkdown
-          cache-version: 1 # Increment cache version if R dependencies change significantly
+          cache-version: 2 # Increment cache version if R dependencies change significantly
       - name: Generate Quarto Content
         run: Rscript generate_book.R
       - name: Render Quarto Book
         env:
-          QUARTO_DENO_EXTRA_OPTIONS: --v8-flags=--max-old-space-size=6144
-        run: quarto render --profile github-actions # Use a profile if needed, otherwise just `quarto render`
+          QUARTO_DENO_V8_OPTIONS: --max-old-space-size=6144
+        run: quarto render
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
