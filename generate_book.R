@@ -50,6 +50,7 @@ sanitize_filename <- function(name, prefix = "") {
 }
 
 # --- Helper function to compute diff HTML (pre-computed, not at render time) ---
+# Using 'unified' mode instead of 'sidebyside' for much smaller HTML output
 compute_diff_html <- function(prev_text, current_text) {
   # Capture the HTML output from diffobj
   diff_output <- capture.output({
@@ -57,7 +58,7 @@ compute_diff_html <- function(prev_text, current_text) {
       prev_text, 
       current_text, 
       format = 'html', 
-      mode = 'sidebyside', 
+      mode = 'unified',  # Much more compact than 'sidebyside'
       ignore.white.space = TRUE, 
       style = list(html.output = 'diff.w.style')
     )
@@ -86,8 +87,9 @@ for (p in all_persons) {
 
     if (is.na(current_row$prev_text)) {
       # First entry for this person, just show the current text
+      # Add section ID for linking from date pages
       qmd_content <- paste0(
-        paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), "\n\n"),
+        paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), " {#section-", format(current_row$date, "%Y-%m-%d"), "}\n\n"),
         "First registered entry:\n\n",
         "```text\n",
         current_row$full_text,
@@ -97,19 +99,13 @@ for (p in all_persons) {
       # Subsequent entry, show the diff
       any_change_from_previous <- all(gsub("[[:space:]]", "", current_row$full_text) == gsub("[[:space:]]", "", current_row$prev_text))
       if (any_change_from_previous) {
-        # qmd_content <- paste0(
-        #   paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), "\n\n"),
-        #   "No changes since ", format(current_row$prev_date, "%Y-%m-%d"), ".\n\n"
-        # )
-        qmd_content <- paste0(
-          qmd_content,
-          "No changes at ", format(current_row$date, "%Y-%m-%d"), ".\n\n"
-        )
+        # Skip dates with no changes entirely to reduce content
       } else {
         # Pre-compute the diff HTML instead of using R chunk at render time
+        # Add section ID for linking from date pages
         diff_html <- compute_diff_html(current_row$prev_text, current_row$full_text)
         qmd_content <- paste0(
-          paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), "\n\n"),
+          paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), " {#section-", format(current_row$date, "%Y-%m-%d"), "}\n\n"),
           "Changes since ", format(current_row$prev_date, "%Y-%m-%d"), ":\n\n",
           "```{=html}\n",
           diff_html,
@@ -125,6 +121,8 @@ message("Generated ", length(politician_files), " politician chapter files.")
 
 
 # --- Generate Chapters by Date ---
+# Create lightweight date pages that just summarize changes (links to politician pages for full diffs)
+# This avoids duplicating all diff HTML and dramatically reduces memory usage
 message("Generating chapters by date...")
 date_files <- character()
 all_dates <- sort(unique(summary_data$date))
@@ -133,55 +131,62 @@ for (d in all_dates) {
   date_data <- summary_data[date == d]
   setorder(date_data, person) # Order by person within the date
   
-  # Create filename
-  filename <- file.path(output_dir_dates, sanitize_filename(format(as.Date(d), "%Y_%m_%d"), prefix = "date_"))
-  date_files <- c(date_files, filename)
-  
-  # Start writing QMD content
-  qmd_content <- paste0("# ", format(as.Date(d), "%Y-%m-%d"), "\n\n")
+  # Collect changes for this date
+  new_registrations <- character()
+  updates <- character()
   
   for (p in date_data$person) {
-    current_row <- date_data[person == p] # Should be only one row here per person/date
+    current_row <- date_data[person == p]
     
-    # Need the previous state *for this person* (which might be from an earlier date)
+    # Need the previous state *for this person*
     person_history <- summary_data[person == p & date <= d]
     setorder(person_history, date)
     prev_row <- if(nrow(person_history) > 1) person_history[nrow(person_history)-1] else NULL
     
     if (is.null(prev_row)) {
-      # First entry for this person up to this date
-      qmd_content <- paste0(
-        paste0(qmd_content, "## ", p, "\n\n"),
-        "First registered entry (as of this date):\n\n",
-        "```text\n",
-        current_row$full_text,
-        "\n```\n\n"
-      )
+      # First entry for this person
+      new_registrations <- c(new_registrations, p)
     } else {
-      
       any_change_from_previous <- all(gsub("[[:space:]]", "", current_row$full_text) == gsub("[[:space:]]", "", prev_row$full_text))
-      if (any_change_from_previous) {
-        # qmd_content <- paste0(
-        #   paste0(qmd_content, "## ", p, "\n\n"),
-        #   "No changes since ", format(prev_row$date, "%Y-%m-%d"), ".\n\n"
-        # )
-      } else {
-        # Pre-compute the diff HTML instead of using R chunk at render time
-        diff_html <- compute_diff_html(prev_row$full_text, current_row$full_text)
-        qmd_content <- paste0(
-          paste0(qmd_content, "## ", p, "\n\n"),
-          "Changes since ", format(prev_row$date, "%Y-%m-%d"), ":\n\n",
-          "```{=html}\n",
-          diff_html,
-          "\n```\n\n"
-        )
+      if (!any_change_from_previous) {
+        updates <- c(updates, p)
       }
     }
   }
-
-  writeLines(qmd_content, filename, useBytes = TRUE)
+  
+  # Only create file if there are changes
+  if (length(new_registrations) > 0 || length(updates) > 0) {
+    qmd_content <- paste0("# ", format(as.Date(d), "%Y-%m-%d"), "\n\n")
+    
+    if (length(new_registrations) > 0) {
+      qmd_content <- paste0(qmd_content, "## New Registrations\n\n")
+      for (p in new_registrations) {
+        # Create link to politician page
+        politician_file <- sanitize_filename(p)
+        politician_file <- sub("\\.qmd$", ".html", politician_file)
+        qmd_content <- paste0(qmd_content, "- [", p, "](../politicians/", politician_file, ")\n")
+      }
+      qmd_content <- paste0(qmd_content, "\n")
+    }
+    
+    if (length(updates) > 0) {
+      qmd_content <- paste0(qmd_content, "## Updated Registrations\n\n")
+      for (p in updates) {
+        # Create link to politician page with anchor to this date
+        politician_file <- sanitize_filename(p)
+        politician_file <- sub("\\.qmd$", ".html", politician_file)
+        date_anchor <- format(as.Date(d), "%Y-%m-%d")
+        qmd_content <- paste0(qmd_content, "- [", p, "](../politicians/", politician_file, "#section-", date_anchor, ")\n")
+      }
+      qmd_content <- paste0(qmd_content, "\n")
+    }
+    
+    filename <- file.path(output_dir_dates, sanitize_filename(format(as.Date(d), "%Y_%m_%d"), prefix = "date_"))
+    date_files <- c(date_files, filename)
+    writeLines(qmd_content, filename, useBytes = TRUE)
+  }
 }
-message("Generated ", length(date_files), " date chapter files.")
+message("Generated ", length(date_files), " date chapter files (lightweight summaries with links).")
 
 # --- Copy diffobj CSS ---
 message("Copying diffobj CSS file...")
