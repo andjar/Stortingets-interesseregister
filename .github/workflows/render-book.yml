@@ -49,7 +49,7 @@ jobs:
         run: Rscript generate_book.R
       - name: Render Quarto Book
         env:
-          QUARTO_DENO_EXTRA_OPTIONS: "--v8-flags=--max-old-space-size=6144"
+          QUARTO_DENO_EXTRA_OPTIONS: --v8-flags=--max-old-space-size=6144
         run: quarto render --profile github-actions # Use a profile if needed, otherwise just `quarto render`
       - name: Setup Pages
         uses: actions/configure-pages@v4
