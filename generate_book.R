@@ -10,6 +10,7 @@ library(yaml)
 # --- Configuration ---
 output_dir_politicians <- "politicians"
 output_dir_dates <- "dates"
+output_dir_indexes <- "indexes"
 data_file <- here("data", "data.csv")
 quarto_yaml_file <- "_quarto.yml"
 index_qmd_file <- "index.qmd"
@@ -17,6 +18,50 @@ index_qmd_file <- "index.qmd"
 # Create output directories if they don't exist
 dir.create(output_dir_politicians, showWarnings = FALSE, recursive = TRUE)
 dir.create(output_dir_dates, showWarnings = FALSE, recursive = TRUE)
+dir.create(output_dir_indexes, showWarnings = FALSE, recursive = TRUE)
+
+# --- Helper function to parse politician info from name string ---
+# Format: "Lastname, Firstname (Party, Region)"
+parse_politician_info <- function(name_string) {
+  # Extract parts using regex
+  # Pattern: "Lastname, Firstname (Party, Region)"
+  match <- str_match(name_string, "^([^,]+),\\s*([^(]+)\\s*\\(([^,]+),\\s*([^)]+)\\)")
+  
+  if (is.na(match[1])) {
+    # Fallback if pattern doesn't match
+    return(list(
+      last_name = name_string,
+      first_name = "",
+      party = "Unknown",
+      region = "Unknown",
+      full_name = name_string
+    ))
+  }
+  
+  list(
+    last_name = str_trim(match[2]),
+    first_name = str_trim(match[3]),
+    party = str_trim(match[4]),
+    region = str_trim(match[5]),
+    full_name = name_string
+  )
+}
+
+# --- Party name mapping ---
+party_names <- list(
+  "A" = "Arbeiderpartiet",
+  "FrP" = "Fremskrittspartiet", 
+  "H" = "Høyre",
+  "KrF" = "Kristelig Folkeparti",
+  "MDG" = "Miljøpartiet De Grønne",
+  "R" = "Rødt",
+  "Sp" = "Senterpartiet",
+  "SV" = "Sosialistisk Venstreparti",
+  "V" = "Venstre",
+  "PF" = "Pasientfokus",
+  "Uavh" = "Uavhengig",
+  "Unknown" = "Ukjent parti"
+)
 
 # --- Data Loading and Preparation ---
 message("Loading data from: ", data_file)
@@ -49,31 +94,37 @@ sanitize_filename <- function(name, prefix = "") {
   paste0(prefix, name, ".qmd")
 }
 
-# --- Helper function to compute diff HTML (pre-computed, not at render time) ---
-# Using 'unified' mode instead of 'sidebyside' for much smaller HTML output
-compute_diff_html <- function(prev_text, current_text) {
-  # Capture the HTML output from diffobj
+# --- Helper function to compute plain text diff (much smaller than HTML) ---
+# Uses simple line-by-line comparison to show changes
+compute_text_diff <- function(prev_text, current_text) {
+  prev_lines <- strsplit(prev_text, "\n")[[1]]
+  curr_lines <- strsplit(current_text, "\n")[[1]]
+  
+  # Use diffobj but capture as plain text (ANSI stripped)
   diff_output <- capture.output({
     diffobj::diffChr(
       prev_text, 
       current_text, 
-      format = 'html', 
-      mode = 'unified',  # Much more compact than 'sidebyside'
-      ignore.white.space = TRUE, 
-      style = list(html.output = 'diff.w.style')
+      format = 'raw',  # Plain text format - much smaller than HTML
+      mode = 'unified',
+      ignore.white.space = TRUE,
+      pager = 'off'
     )
   })
+  
+  # Return as plain text for code block display
   paste(diff_output, collapse = "\n")
 }
 
 # --- Generate Chapters by Politician ---
+# No artificial limits - show all historical changes
 message("Generating chapters by politician...")
 politician_files <- character()
 all_persons <- unique(summary_data$person)
 
 for (p in all_persons) {
   person_data <- summary_data[person == p]
-  setorder(person_data, date)
+  setorder(person_data, date)  # Oldest first for chronological display
   
   # Create filename
   filename <- file.path(output_dir_politicians, sanitize_filename(p))
@@ -86,8 +137,7 @@ for (p in all_persons) {
     current_row <- person_data[i, ]
 
     if (is.na(current_row$prev_text)) {
-      # First entry for this person, just show the current text
-      # Add section ID for linking from date pages
+      # First entry for this person
       qmd_content <- paste0(
         paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), " {#section-", format(current_row$date, "%Y-%m-%d"), "}\n\n"),
         "First registered entry:\n\n",
@@ -96,19 +146,16 @@ for (p in all_persons) {
         "\n```\n\n"
       )
     } else {
-      # Subsequent entry, show the diff
+      # Check for actual changes
       any_change_from_previous <- all(gsub("[[:space:]]", "", current_row$full_text) == gsub("[[:space:]]", "", current_row$prev_text))
-      if (any_change_from_previous) {
-        # Skip dates with no changes entirely to reduce content
-      } else {
-        # Pre-compute the diff HTML instead of using R chunk at render time
-        # Add section ID for linking from date pages
-        diff_html <- compute_diff_html(current_row$prev_text, current_row$full_text)
+      if (!any_change_from_previous) {
+        # Show the diff as plain text
+        diff_text <- compute_text_diff(current_row$prev_text, current_row$full_text)
         qmd_content <- paste0(
           paste0(qmd_content, "## ", format(current_row$date, "%Y-%m-%d"), " {#section-", format(current_row$date, "%Y-%m-%d"), "}\n\n"),
           "Changes since ", format(current_row$prev_date, "%Y-%m-%d"), ":\n\n",
-          "```{=html}\n",
-          diff_html,
+          "```diff\n",
+          diff_text,
           "\n```\n\n"
         )
       }
@@ -188,60 +235,200 @@ for (d in all_dates) {
 }
 message("Generated ", length(date_files), " date chapter files (lightweight summaries with links).")
 
-# --- Copy diffobj CSS ---
-message("Copying diffobj CSS file...")
-diffobj_css_path <- diffobj::diffobj_css()
+# --- Parse politician metadata for index pages ---
+message("Parsing politician metadata...")
+politician_info <- lapply(all_persons, parse_politician_info)
+names(politician_info) <- all_persons
 
-if (!is.null(diffobj_css_path) && file.exists(diffobj_css_path)) {
-  # Define target path (e.g., in the root or a 'css' subdir)
-  target_css_path <- "diffobj.css"
-  # Uncomment next line if you prefer a css subdirectory
-  # target_css_path <- file.path("css", "diffobj.css"); dir.create("css", showWarnings = FALSE)
+# Create a data.table for easier grouping
+politician_meta <- data.table(
+  full_name = all_persons,
+  last_name = sapply(politician_info, function(x) x$last_name),
+  first_name = sapply(politician_info, function(x) x$first_name),
+  party = sapply(politician_info, function(x) x$party),
+  region = sapply(politician_info, function(x) x$region),
+  filename = politician_files
+)
+
+# --- Generate Index by Party ---
+message("Generating index by party...")
+parties <- sort(unique(politician_meta$party))
+
+party_index_content <- "# Politicians by Party\n\n"
+party_index_content <- paste0(party_index_content, "Browse members of the Storting by their political party.\n\n")
+
+for (p in parties) {
+  party_members <- politician_meta[party == p][order(last_name)]
+  party_full_name <- if (!is.null(party_names[[p]])) party_names[[p]] else p
   
-  if (file.copy(diffobj_css_path, target_css_path, overwrite = TRUE)) {
-    message("Copied diffobj CSS to: ", target_css_path)
-  } else {
-    warning("Failed to copy diffobj CSS to: ", target_css_path)
+  party_index_content <- paste0(party_index_content, "## ", party_full_name, " (", p, ")\n\n")
+  
+  for (i in 1:nrow(party_members)) {
+    member <- party_members[i]
+    html_file <- sub("\\.qmd$", ".html", basename(member$filename))
+    party_index_content <- paste0(
+      party_index_content,
+      "- [", member$full_name, "](../politicians/", html_file, ")\n"
+    )
   }
-} else {
-  warning("Could not find diffobj CSS file using diffobj::diffStyle(css.mode = 'file').")
+  party_index_content <- paste0(party_index_content, "\n")
 }
 
+party_index_file <- file.path(output_dir_indexes, "by-party.qmd")
+writeLines(party_index_content, party_index_file, useBytes = TRUE)
+
+# --- Generate Index by Last Name (Alphabetical) ---
+message("Generating alphabetical index...")
+politician_meta[, first_letter := toupper(substr(last_name, 1, 1))]
+letters_used <- sort(unique(politician_meta$first_letter))
+
+alpha_index_content <- "# Politicians A-Å\n\n"
+alpha_index_content <- paste0(alpha_index_content, "Browse members of the Storting alphabetically by last name.\n\n")
+
+for (letter in letters_used) {
+  letter_members <- politician_meta[first_letter == letter][order(last_name, first_name)]
+  
+  alpha_index_content <- paste0(alpha_index_content, "## ", letter, "\n\n")
+  
+  for (i in 1:nrow(letter_members)) {
+    member <- letter_members[i]
+    html_file <- sub("\\.qmd$", ".html", basename(member$filename))
+    alpha_index_content <- paste0(
+      alpha_index_content,
+      "- [", member$full_name, "](../politicians/", html_file, ") - ", member$party, "\n"
+    )
+  }
+  alpha_index_content <- paste0(alpha_index_content, "\n")
+}
+
+alpha_index_file <- file.path(output_dir_indexes, "by-name.qmd")
+writeLines(alpha_index_content, alpha_index_file, useBytes = TRUE)
+
+# --- Generate Index by Region ---
+message("Generating index by region...")
+regions <- sort(unique(politician_meta$region))
+
+region_index_content <- "# Politicians by Region\n\n"
+region_index_content <- paste0(region_index_content, "Browse members of the Storting by their electoral district.\n\n")
+
+for (r in regions) {
+  region_members <- politician_meta[region == r][order(last_name)]
+  
+  region_index_content <- paste0(region_index_content, "## ", r, "\n\n")
+  
+  for (i in 1:nrow(region_members)) {
+    member <- region_members[i]
+    html_file <- sub("\\.qmd$", ".html", basename(member$filename))
+    region_index_content <- paste0(
+      region_index_content,
+      "- [", member$full_name, "](../politicians/", html_file, ") - ", member$party, "\n"
+    )
+  }
+  region_index_content <- paste0(region_index_content, "\n")
+}
+
+region_index_file <- file.path(output_dir_indexes, "by-region.qmd")
+writeLines(region_index_content, region_index_file, useBytes = TRUE)
+
+# --- Generate Date Index (timeline) ---
+message("Generating date timeline index...")
+date_index_content <- "# Timeline of Changes\n\n"
+date_index_content <- paste0(date_index_content, "Browse changes by date. Click a date to see who registered new interests or updated their registration.\n\n")
+
+# Group by year for better organization
+all_dates_parsed <- as.Date(all_dates)
+years <- sort(unique(format(all_dates_parsed, "%Y")), decreasing = TRUE)
+
+for (year in years) {
+  year_dates <- all_dates[format(all_dates_parsed, "%Y") == year]
+  year_dates <- sort(year_dates, decreasing = TRUE)
+  
+  date_index_content <- paste0(date_index_content, "## ", year, "\n\n")
+  
+  for (d in year_dates) {
+    # Check if we have a date file for this date
+    date_filename <- sanitize_filename(format(as.Date(d), "%Y_%m_%d"), prefix = "date_")
+    date_filepath <- file.path(output_dir_dates, date_filename)
+    
+    if (date_filepath %in% date_files) {
+      html_file <- sub("\\.qmd$", ".html", date_filename)
+      date_index_content <- paste0(
+        date_index_content,
+        "- [", format(as.Date(d), "%Y-%m-%d"), "](../dates/", html_file, ")\n"
+      )
+    }
+  }
+  date_index_content <- paste0(date_index_content, "\n")
+}
+
+date_index_file <- file.path(output_dir_indexes, "by-date.qmd")
+writeLines(date_index_content, date_index_file, useBytes = TRUE)
+
+message("Generated 4 index pages.")
+
 # --- Generate _quarto.yml ---
+# Using website type instead of book - better for many pages, lower memory usage
+# Key: embed-resources: false prevents loading all resources into memory per page
 message("Generating ", quarto_yaml_file, "...")
 quarto_config <- list(
   project = list(
-    type = "book",
-    `output-dir` = "_book" # Standard output directory
+    type = "website",
+    `output-dir` = "_book"
   ),
-  book = list(
-    title = "Norwegian Politician Financial Interests",
-    author = "Anders Hagen Jarmund",
-    date = "today",
-    chapters = list(
-      list(part = "Introduction", chapters = list(index_qmd_file)),
-      list(part = "Changes by Politician", chapters = as.list(politician_files)),
-      list(part = "Changes by Date", chapters = as.list(date_files))
-    ),
-    `repo-url` = "https://github.com/andjar/Stortingets-interesseregister", # CHANGE THIS
-    `repo-branch` = "main", # Or your default branch
+  website = list(
+    title = "Stortingets interesseregister",
+    description = "Track changes in Norwegian politicians' registered financial interests over time",
+    `repo-url` = "https://github.com/andjar/Stortingets-interesseregister",
+    `repo-branch` = "main",
     `repo-actions` = list("edit", "issue"),
     `reader-mode` = TRUE,
+    navbar = list(
+      title = "Stortingets interesseregister",
+      left = list(
+        list(text = "Home", href = index_qmd_file),
+        list(text = "By Party", href = party_index_file),
+        list(text = "By Name", href = alpha_index_file),
+        list(text = "By Region", href = region_index_file),
+        list(text = "Timeline", href = date_index_file)
+      ),
+      right = list(
+        list(icon = "github", href = "https://github.com/andjar/Stortingets-interesseregister")
+      )
+    ),
     sidebar = list(
-      search = TRUE,
-      style = "docked",
-      `collapse-level` = 1
-    )
+      list(
+        id = "politicians",
+        title = "Politicians",
+        style = "docked",
+        search = TRUE,
+        `collapse-level` = 1,
+        contents = list(
+          list(
+            section = "Browse",
+            contents = list(
+              list(text = "By Party", href = party_index_file),
+              list(text = "By Name (A-Å)", href = alpha_index_file),
+              list(text = "By Region", href = region_index_file),
+              list(text = "Timeline", href = date_index_file)
+            )
+          ),
+          list(
+            section = "All Politicians",
+            contents = as.list(politician_files)
+          )
+        )
+      )
+    ),
+    `page-navigation` = TRUE
   ),
   format = list(
     html = list(
-      theme = "cosmo", # Choose a theme: https://quarto.org/docs/output-formats/html-themes.html
+      theme = "cosmo",
       toc = TRUE,
       `toc-depth` = 2L,
-      css = "diffobj.css"
+      `embed-resources` = FALSE  # CRITICAL: prevents memory accumulation
     )
   )
-  # Note: No execute/freeze needed - diffs are pre-computed as static HTML
 )
 
 write_yaml(quarto_config, quarto_yaml_file, handlers = list(logical = yaml::verbatim_logical))

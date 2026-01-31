@@ -45,8 +45,9 @@ jobs:
           cache-version: 2 # Increment cache version if R dependencies change significantly
       - name: Generate Quarto Content
         run: Rscript generate_book.R
-      - name: Render Quarto Book
+      - name: Render Quarto Website
         env:
+          # Increase memory limit for Deno (max available on free GitHub runners is ~7GB)
           QUARTO_DENO_V8_OPTIONS: --max-old-space-size=6144
         run: quarto render
       - name: Setup Pages

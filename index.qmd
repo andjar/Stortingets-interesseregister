@@ -1,14 +1,51 @@
-# Introduction
+---
+title: "Stortingets interesseregister"
+subtitle: "Tracking financial interests of Norwegian politicians over time"
+---
 
-This book summarizes the registered financial interests of Norwegian politicians based on data extracted from [Source - describe your PDF source, e.g., Stortinget].
+# Welcome
 
-The book is automatically generated and presents changes over time in two ways:
-  
-1.  **By Politician:** Each chapter focuses on one politician, showing the chronological changes in their registered interests.
-2.  **By Date:** Each chapter focuses on a specific date, showing the status or changes for all relevant politicians on that date.
+This website tracks changes in the registered financial interests of members of the Norwegian Parliament (Stortinget). It automatically detects and highlights changes whenever politicians update their registrations.
 
-The diffs highlight additions (green) and deletions (red) compared to the previous entry, ignoring whitespace changes.
+## Browse by
 
-*This book is automatically generated. Please refer to the original source for official information.*
-  
-Code by Gemini. Data from Stortinget at: https://www.stortinget.no/no/stortinget-og-demokratiet/representantene/okonomiske-interesser/
+::: {.grid}
+
+::: {.g-col-6}
+### [By Party](indexes/by-party.html)
+View politicians grouped by their political party (Arbeiderpartiet, Høyre, FrP, etc.)
+:::
+
+::: {.g-col-6}
+### [By Name](indexes/by-name.html)
+Alphabetical listing of all politicians (A-Å)
+:::
+
+::: {.g-col-6}
+### [By Region](indexes/by-region.html)
+Politicians grouped by their electoral district
+:::
+
+::: {.g-col-6}
+### [Timeline](indexes/by-date.html)
+Chronological view of when changes were registered
+:::
+
+:::
+
+## About the data
+
+The data is extracted from Stortinget's official register of financial interests. Each politician's page shows:
+
+- Their **first registered entry** (complete text)
+- **Changes over time** displayed as diffs (additions and removals highlighted)
+
+The diffs ignore whitespace changes to focus on meaningful content updates.
+
+## Data source
+
+Official data from Stortinget: <https://www.stortinget.no/no/stortinget-og-demokratiet/representantene/okonomiske-interesser/>
+
+---
+
+*This website is automatically generated and updated. Please refer to the official Stortinget website for authoritative information.*
