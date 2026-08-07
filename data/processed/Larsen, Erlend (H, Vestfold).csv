@@ -2,18 +2,22 @@
 "§3    Selvstendig næring       E-forlag - forlag, eneeier"
 "§4    Lønnet stilling m.v.     E-forlag, forlag (aktivt, utgir egne og andres bøker)"
 "§9    Selskapsinteresser       E-forlag, 100 pst."
-                               AKH 28 aksjer
                                Frontline 416 aksjer
                                Kongsberg Automotive 100 aksjer
                                KOG 100 aksjer
+                               Kongsberg Maritime 100 aksjer (som følge av oppsplitting av KOG)
+"                               Norske Skogindustri 7000 aksjer (vet ikke hvorfor den dukket opp,"
+                               har ikke kjøpt)
                                Norwegian Air Shutle 5 aksjer
                                Otello Corporation 820 aksjer
                                Solstad maritime 508
-                                 Techstep 110 aksjer
+                               Techstep 110 aksjer
+                                 Telenor 150 aksjer
                                  Vestfold flyplassinvest 12 aksjer
 Enkelttransaksjoner
-Dato          Kjøp/Salg Selskapsnavn                     Ansvarsform   Eierandel (%) Antall Verdi (NOK)
-30.03.2026    Salg      eqnr                             AS                        0    100       40191
-02.01.2026    Salg      Yara                             AS                              56       23181
+Dato          Kjøp/Salg    Selskapsnavn                   Ansvarsform    Eierandel (%) Antall Verdi (NOK)
+"20.07.2026    Kjøp         Telenor                        AS                         0    150        133,8"
+30.03.2026    Salg         eqnr                           AS                         0    100       40191
+02.01.2026    Salg         Yara                           AS                               56       23181
 §15   Andre forhold              566 aksjer i SAS er slettet etter avviklingen av SAS
                                  AS Raadhuset er oppløst 09052025
